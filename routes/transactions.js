@@ -21,7 +21,7 @@ router.get('/:activityId', async (req, res) => {
         })
         .populate('activity');
 
-        if(transactions !== null)
+        if(transactions.length !== 0)
             res.status(200).json(transactions);
         else
             res.status(404).json({result: false, error: "Transaction not found"});
