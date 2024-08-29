@@ -36,28 +36,28 @@ router.post('/', (req, res) => {
 // POST: Retrive chats info for each [activities]
 router.post('/byActivities', async (req, res) => {
     const { activityIds } = req.body;
-  
+
     if (!Array.isArray(activityIds) || !activityIds.length === 24 ) {
-      return res.status(400).json({ result: false, error: "Invalid activity IDs" });
+        return res.status(400).json({ result: false, error: "Invalid activity IDs" });
     }
-  
+
     try {
-      // Retrieve chats for each activity
-      const chats = await Chat.find({ activity: { $in: activityIds } })
-      .populate({
+        // Retrieve chats for each activity
+        const chats = await Chat.find({ activity: { $in: activityIds } })
+        .populate({
         path: 'activity', 
         select: 'name',
-      })
-      .populate({
+    })
+    .populate({
         path: 'messages.user',
         select: '-_id -password',  //Don't populate id and password
-      });
-  
-      res.status(200).json({ result: true, chats });
-  
+    });
+
+    res.status(200).json({ result: true, chats });
+
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ result: false, error: "Internal Server Error" });
+        console.error(error);
+        res.status(500).json({ result: false, error: "Internal Server Error" });
     }
 });
 
@@ -126,19 +126,20 @@ router.get('/:chatId/:userToken', (req, res) => {
         }
     })
     .then(chat => {
-        // Find last logoff for the user
-        const lastLogoff = chat.messages.filter(msg => msg.type === 'Event' && msg.user.token === req.params.userToken)
-        
+        const result = chat !== null; // Chat exist ?
         let newMessagesCount = 0;
-        // If user never logoff from the chat all messages are new
-        if(lastLogoff.length === 0){
-            newMessagesCount = chat.messages.filter(msg => msg.type === 'Message').length;
-        } else {
-            // Count number of new messages 
-            newMessagesCount = chat.messages.filter(msg => msg.type === 'Message' && msg.createdAt > lastLogoff[0].createdAt).length;
+        if(result){
+            // Find last logoff for the user
+            const lastLogoff = chat.messages.filter(msg => msg.type === 'Event' && msg.user.token === req.params.userToken)
+            
+            // If user never logoff from the chat all messages are new
+            if(lastLogoff.length === 0){
+                newMessagesCount = chat.messages.filter(msg => msg.type === 'Message').length;
+            } else {
+                // Count number of new messages 
+                newMessagesCount = chat.messages.filter(msg => msg.type === 'Message' && msg.createdAt > lastLogoff[0].createdAt).length;
+            }
         }
-
-        const result = chat !== null;
         res.json({ result, newMessagesCount });
     });
 });
@@ -193,7 +194,7 @@ router.put('/:chatId/:userToken', (req, res) => {
 
 // POST : Send new message //
 router.post('/:chatId/:userToken', (req, res) => {
-    if (!checkBody(req.body, ['messageText', 'avatar', 'username'])) {
+    if (!checkBody(req.body, ['messageText', 'username'])) {
         res.json({ result: false, error: 'Missing or empty fields' });
         return;
     }
@@ -202,12 +203,13 @@ router.post('/:chatId/:userToken', (req, res) => {
         res.status(400).json({result: false, error: "Invalid chat Id"});
         return;
     }
-
+    
     if(req.params.userToken.length !== 32){ 
         res.status(400).json({result: false, error: "Invalid user token"});
         return;
     }
     
+    console.log('First tests ok');
     // Get user id
     User.findOne({ token: req.params.userToken }).select('_id')
     .then(data => {
