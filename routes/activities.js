@@ -210,7 +210,7 @@ router.get("/participants/:activityId", async (req, res) => {
       activity: activityId,
     }).populate({
       path: "user",
-      select: "-password -token", // Don't return password && token
+      select: "-_id avatar email username", // Don't return _id
     });
 
     // Vérifier si des participants ont été trouvés
@@ -220,8 +220,8 @@ router.get("/participants/:activityId", async (req, res) => {
         .json({ message: "Aucun participant trouvé pour cette activité" });
     }
 
-    // Envoyer la liste des participants en réponse
-    res.status(200).json(participants);
+    // Envoyer la liste des participants trié par status en réponse
+    res.status(200).json(participants.sort((a, b) => a.status.localeCompare(b.status)));
   } catch (error) {
     // Gérer les erreurs éventuelles
     console.error("Erreur lors de la récupération des participants:", error);
@@ -234,28 +234,28 @@ router.get("/participants/:activityId", async (req, res) => {
 });
 
 // Route pour supprimer un participant par son ID
-router.delete("/participants/:participantId", async (req, res) => {
+router.delete("/participants/:participationId", async (req, res) => {
+  if(req.params.participationId.length !== 24){ // mongoDB => _id length 24
+    res.status(400).json({result: false, error: "Invalid activity Id"});
+    return;
+  }
 try {    
-  const { participantId } = req.params;
-    console.log("id du participant ===>", participantId);
-
+  const { participationId } = req.params;
     // Chercher et supprimer le participant par son ID
-    const  deletedParticipant = await Participant.deleteOne({ user : participantId });
+    const  deletedParticipant = await Participant.deleteOne({ _id : participationId });
 
-    console.log("participant trouvé obj ===>", deletedParticipant)
     // Vérifiez si le participant a été trouvé et supprimé
     if (!deletedParticipant) {
-      return res.status(404).json({ message: "Participant non trouvé" });
+      res.status(404).json({ message: "Participant non trouvé" });
+      return;
     }
 
     // Envoyer une réponse de succès
     if (deletedParticipant.deletedCount) {
-      console.log('======>')
       res.status(200).json({ message: "Participant supprimé avec succès"});
     }
   } catch (error) {
-    // Gérer les erreurs éventuelles
-    console.error("Erreur lors de la suppression du participant:", error);
+    // Gérer les erreurs éventuelle
     res
       .status(500)
       .json({
@@ -296,6 +296,33 @@ router.put("/:activityId", (req, res) => {
       });
     } else {
       res.json({ result: false, error: "Activity not updated" });
+    }
+  });
+});
+
+// PUT : Update participation status => Accepeted //
+router.put("/participants/:participationId", (req, res) => {
+  if(req.params.participationId.length !== 24){ // mongoDB => _id length 24
+    res.status(400).json({result: false, error: "Invalid participation Id"});
+    return;
+  }
+
+  Participant.updateOne(
+    { _id: req.params.participationId },
+    {
+      $set: {
+        status: 'Accepted',
+      },
+    }
+  ).then((data) => {
+    if (data.modifiedCount > 0) {
+      res.json({
+        result: true,
+        message: "Particpation updated",
+        modifiedCount: data.modifiedCount,
+      });
+    } else {
+      res.json({ result: false, error: "Particpation not updated" });
     }
   });
 });
